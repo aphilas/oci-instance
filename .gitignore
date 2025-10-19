@@ -1,0 +1,16 @@
+# Local .terraform directories
+.terraform/
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Exclude .tfvars files
+*.tfvars
+
+# Transient lock info files
+.terraform.tfstate.lock.info
+
+.env*
+
+scratchpad*

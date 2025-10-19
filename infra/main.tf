@@ -1,0 +1,117 @@
+locals {
+  # https://docs.oracle.com/en-us/iaas/images/ubuntu-2404/canonical-ubuntu-24-04-minimal-aarch64-2025-07-23-0.htm
+  os_image_id = "ocid1.image.oc1.iad.aaaaaaaah5xqkk5zviea6hsxqk77ucvxzzx55rachmyvl2kmj2dz24usr3ca"
+  node_shape  = "VM.Standard.A1.Flex"
+  ssh_port    = 2222
+
+
+  cloud_init_config = templatefile("${path.module}/cloud-init.yaml", {
+    ssh_public_key = file(var.ssh_public_key_file)
+    ssh_port       = local.ssh_port
+  })
+}
+
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.compartment_id
+}
+
+/* ------------------------------- Networking ------------------------------- */
+
+module "vcn" {
+  source  = "oracle-terraform-modules/vcn/oci"
+  version = "3.6.0"
+
+  compartment_id = var.compartment_id
+
+  vcn_name      = "spade-vcn"
+  vcn_dns_label = "spade"
+  vcn_cidrs = ["10.0.0.0/16"]
+
+  create_internet_gateway = true
+  # create_nat_gateway      = false
+  # create_service_gateway  = false
+}
+
+resource "oci_core_subnet" "spade-subnet" {
+  compartment_id    = var.compartment_id
+  vcn_id           = module.vcn.vcn_id
+  cidr_block       = "10.0.1.0/24"
+
+  display_name     = "spade-subnet"
+  dns_label        = "spadesubnet"
+
+  route_table_id = module.vcn.ig_route_id
+  # TODO: Do not use default security list
+  security_list_ids = [module.vcn.default_security_list_id]
+}
+
+/* -------------------------------- Security -------------------------------- */
+
+resource "oci_core_network_security_group" "spade-nsg" {
+  compartment_id = var.compartment_id
+  vcn_id         = module.vcn.vcn_id
+
+  display_name = "spade-nsg"
+}
+
+resource "oci_core_network_security_group_security_rule" "spade-ingress" {
+  network_security_group_id = oci_core_network_security_group.spade-nsg.id
+
+  direction   = "INGRESS"
+  protocol    = 6 # TCP
+  description = "Allow SSH on ${local.ssh_port}"
+
+  source      = "0.0.0.0/0"
+  source_type = "CIDR_BLOCK"
+
+  tcp_options {
+    destination_port_range {
+      max = local.ssh_port
+      min = local.ssh_port
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "spade-egress" {
+  network_security_group_id = oci_core_network_security_group.spade-nsg.id
+
+  direction   = "EGRESS"
+  protocol    = "all"
+  description = "Allow all outbound traffic"
+
+  destination      = "0.0.0.0/0"
+  destination_type = "CIDR_BLOCK"
+}
+
+/* ---------------------------- Compute Instance ---------------------------- */
+
+resource "oci_core_instance" "spade-instance" {
+  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+  compartment_id      = var.compartment_id
+
+  display_name = "spade"
+  shape        = local.node_shape
+
+  shape_config {
+    ocpus         = 1
+    memory_in_gbs = 6
+  }
+
+  source_details {
+    source_id   = local.os_image_id
+    source_type = "image"
+
+    boot_volume_size_in_gbs = 50 # Min size is 50GB
+  } 
+
+  create_vnic_details {
+    subnet_id        = oci_core_subnet.spade-subnet.id
+    assign_public_ip = true
+    nsg_ids          = [oci_core_network_security_group.spade-nsg.id]
+    hostname_label   = "spade"
+  }
+
+  metadata = {
+    user_data = "${base64encode(local.cloud_init_config)}"
+  }
+}

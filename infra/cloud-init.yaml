@@ -1,0 +1,62 @@
+#cloud-config
+
+# Install Docker on an Ubuntu-based instance:
+# https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
+package_update: true
+package_upgrade: true
+
+groups:
+  - docker
+
+system_info:
+  default_user:
+    groups:
+      - docker
+      - sudo
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - ufw
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "local"
+      }
+  - path: /etc/ssh/sshd_config.d/00-cloud-init.conf
+    content: |
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      AllowUsers ubuntu
+      AuthenticationMethods publickey
+      KbdInteractiveAuthentication no
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      Port ${ssh_port}
+      X11Forwarding no
+
+runcmd:
+  # Install Docker 
+  - mkdir -p /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+  # Set up UFW: Allow SSH on port ${ssh_port}
+  - ufw allow ${ssh_port}/tcp
+  - ufw --force enable
+  # Restart SSH to apply config changes
+  - systemctl restart sshd
+
+final_message: "The system is finally up, after $UPTIME seconds"
