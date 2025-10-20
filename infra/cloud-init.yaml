@@ -17,6 +17,8 @@ system_info:
     shell: /bin/bash
     ssh_authorized_keys:
       - ${ssh_public_key}
+    hashed_passwd: ${user_password_hash} # To set passwd for an existing user
+    lock_passwd: false # Allow login with password for serial console access
 
 packages:
   - apt-transport-https
@@ -33,16 +35,19 @@ write_files:
       {
         "log-driver": "local"
       }
-  - path: /etc/ssh/sshd_config.d/00-cloud-init.conf
+  - path: /etc/ssh/sshd_config.d/cloud-init.conf
+    # NOTE: Assumes the default user is 'ubuntu'
     content: |
       AllowAgentForwarding no
       AllowTcpForwarding no
       AllowUsers ubuntu
       AuthenticationMethods publickey
       KbdInteractiveAuthentication no
+      MaxAuthTries 3
       PasswordAuthentication no
-      PermitRootLogin prohibit-password
+      PermitRootLogin no
       Port ${ssh_port}
+      Protocol 2
       X11Forwarding no
 
 runcmd:
@@ -53,10 +58,10 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
-  # Set up UFW: Allow SSH on port ${ssh_port}
+  # Configure UFW
   - ufw allow ${ssh_port}/tcp
-  - ufw --force enable
-  # Restart SSH to apply config changes
+  - ufw enable
+  # Configure sshd
   - systemctl restart sshd
 
 final_message: "The system is finally up, after $UPTIME seconds"

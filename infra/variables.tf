@@ -17,3 +17,8 @@ variable "ssh_private_key_file" {
   type        = string
   description = "Path to the SSH private key file"
 }
+
+variable "user_password_hash" {
+  type        = string
+  description = "The hashed password for the default user"
+}

@@ -1,5 +1,8 @@
 # spade
 
+> **Warning**
+> This config is broken. SSH access does not work.
+
 Oracle Cloud Compute Instance, used (for now) as a builder for ARM Docker images.
 
 Spec:
@@ -22,8 +25,12 @@ oci iam region list
 
 TODO:
 
+- Fix SSH access
 - Ensure default security list is not applied
 - Allow ICMP and other pings
+- Add fail2ban
+- Enable Oracle monitoring agents
+- Fix existing user vs new user config
 
 ## References
 

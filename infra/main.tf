@@ -6,8 +6,9 @@ locals {
 
 
   cloud_init_config = templatefile("${path.module}/cloud-init.yaml", {
-    ssh_public_key = file(var.ssh_public_key_file)
-    ssh_port       = local.ssh_port
+    ssh_public_key     = file(var.ssh_public_key_file)
+    ssh_port           = local.ssh_port
+    user_password_hash = var.user_password_hash
   })
 }
 
@@ -25,7 +26,7 @@ module "vcn" {
 
   vcn_name      = "spade-vcn"
   vcn_dns_label = "spade"
-  vcn_cidrs = ["10.0.0.0/16"]
+  vcn_cidrs     = ["10.0.0.0/16"]
 
   create_internet_gateway = true
   # create_nat_gateway      = false
@@ -33,54 +34,48 @@ module "vcn" {
 }
 
 resource "oci_core_subnet" "spade-subnet" {
-  compartment_id    = var.compartment_id
-  vcn_id           = module.vcn.vcn_id
-  cidr_block       = "10.0.1.0/24"
+  compartment_id = var.compartment_id
+  vcn_id         = module.vcn.vcn_id
+  cidr_block     = "10.0.1.0/24"
 
-  display_name     = "spade-subnet"
-  dns_label        = "spadesubnet"
+  display_name = "spade-subnet"
+  dns_label    = "spadesubnet"
 
-  route_table_id = module.vcn.ig_route_id
-  # TODO: Do not use default security list
-  security_list_ids = [module.vcn.default_security_list_id]
+  route_table_id    = module.vcn.ig_route_id
+  security_list_ids = [oci_core_security_list.spade-security-list.id]
 }
 
 /* -------------------------------- Security -------------------------------- */
 
-resource "oci_core_network_security_group" "spade-nsg" {
+resource "oci_core_security_list" "spade-security-list" {
   compartment_id = var.compartment_id
   vcn_id         = module.vcn.vcn_id
 
-  display_name = "spade-nsg"
-}
+  display_name = "spade-security-list"
 
-resource "oci_core_network_security_group_security_rule" "spade-ingress" {
-  network_security_group_id = oci_core_network_security_group.spade-nsg.id
+  ingress_security_rules {
+    protocol    = "6" # TCP
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
 
-  direction   = "INGRESS"
-  protocol    = 6 # TCP
-  description = "Allow SSH on ${local.ssh_port}"
-
-  source      = "0.0.0.0/0"
-  source_type = "CIDR_BLOCK"
-
-  tcp_options {
-    destination_port_range {
-      max = local.ssh_port
+    tcp_options {
       min = local.ssh_port
+      max = local.ssh_port
     }
   }
-}
 
-resource "oci_core_network_security_group_security_rule" "spade-egress" {
-  network_security_group_id = oci_core_network_security_group.spade-nsg.id
+  # Allow ICMP ping
+  ingress_security_rules {
+    protocol    = "1" # ICMP
+    source      = "0.0.0.0/0"
+    source_type = "CIDR_BLOCK"
+  }
 
-  direction   = "EGRESS"
-  protocol    = "all"
-  description = "Allow all outbound traffic"
-
-  destination      = "0.0.0.0/0"
-  destination_type = "CIDR_BLOCK"
+  egress_security_rules {
+    protocol         = "all"
+    destination      = "0.0.0.0/0"
+    destination_type = "CIDR_BLOCK"
+  }
 }
 
 /* ---------------------------- Compute Instance ---------------------------- */
@@ -102,12 +97,11 @@ resource "oci_core_instance" "spade-instance" {
     source_type = "image"
 
     boot_volume_size_in_gbs = 50 # Min size is 50GB
-  } 
+  }
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.spade-subnet.id
     assign_public_ip = true
-    nsg_ids          = [oci_core_network_security_group.spade-nsg.id]
     hostname_label   = "spade"
   }
 
