@@ -93,42 +93,6 @@ resource "oci_core_security_list" "security-list" {
   }
 }
 
-resource "oci_core_network_security_group" "nsg" {
-  compartment_id = var.compartment_id
-  vcn_id         = module.vcn.vcn_id
-
-  display_name = "spade-nsg"
-}
-
-resource "oci_core_network_security_group_security_rule" "nsg_ingress" {
-  network_security_group_id = oci_core_network_security_group.nsg.id
-  direction                 = "INGRESS"
-  protocol                  = "6" # TCP
-
-  description = "spade-nsg-ingress"
-
-  source      = "0.0.0.0/0"
-  source_type = "CIDR_BLOCK"
-
-  tcp_options {
-    destination_port_range {
-      min = local.ssh_port
-      max = local.ssh_port
-    }
-  }
-}
-
-resource "oci_core_network_security_group_security_rule" "nsg_egress" {
-  network_security_group_id = oci_core_network_security_group.nsg.id
-  direction                 = "EGRESS"
-  protocol                  = "all"
-
-  description = "spade-nsg-egress"
-
-  destination      = "0.0.0.0/0"
-  destination_type = "CIDR_BLOCK"
-}
-
 /* ---------------------------- Compute Instance ---------------------------- */
 
 resource "oci_core_instance" "instance" {
@@ -154,7 +118,6 @@ resource "oci_core_instance" "instance" {
     subnet_id        = oci_core_subnet.subnet.id
     assign_public_ip = true
     hostname_label   = "spade"
-    nsg_ids          = [oci_core_network_security_group.nsg.id]
   }
 
   metadata = {
