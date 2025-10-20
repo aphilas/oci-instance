@@ -1,3 +1,8 @@
+variable "user_id" {
+  type        = string
+  description = "The OCID of the user to authenticate as"
+}
+
 variable "compartment_id" {
   type        = string
   description = "The compartment to create the resources in"
@@ -6,6 +11,16 @@ variable "compartment_id" {
 variable "region" {
   type        = string
   description = "The region to provision the resources in"
+}
+
+variable "private_key_file" {
+  type        = string
+  description = "Path to the Oracle Cloud API signing private key file"
+}
+
+variable "fingerprint" {
+  type        = string
+  description = "The fingerprint for the API signing key"
 }
 
 variable "ssh_public_key_file" {

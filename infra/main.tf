@@ -31,11 +31,9 @@ module "vcn" {
   vcn_cidrs     = ["10.0.0.0/16"]
 
   create_internet_gateway = true
-  # create_nat_gateway      = false
-  # create_service_gateway  = false
 }
 
-resource "oci_core_subnet" "spade-subnet" {
+resource "oci_core_subnet" "subnet" {
   compartment_id = var.compartment_id
   vcn_id         = module.vcn.vcn_id
   cidr_block     = "10.0.1.0/24"
@@ -44,12 +42,12 @@ resource "oci_core_subnet" "spade-subnet" {
   dns_label    = "spadesubnet"
 
   route_table_id    = module.vcn.ig_route_id
-  security_list_ids = [oci_core_security_list.spade-security-list.id]
+  security_list_ids = [oci_core_security_list.security-list.id]
 }
 
 /* -------------------------------- Security -------------------------------- */
 
-resource "oci_core_security_list" "spade-security-list" {
+resource "oci_core_security_list" "security-list" {
   compartment_id = var.compartment_id
   vcn_id         = module.vcn.vcn_id
 
@@ -75,9 +73,9 @@ resource "oci_core_security_list" "spade-security-list" {
     icmp_options {
       type = 3
       code = 4
-    } 
+    }
   }
- 
+
   ingress_security_rules {
     protocol    = "1" # ICMP
     source      = "10.0.0.0/16"
@@ -95,9 +93,45 @@ resource "oci_core_security_list" "spade-security-list" {
   }
 }
 
+resource "oci_core_network_security_group" "nsg" {
+  compartment_id = var.compartment_id
+  vcn_id         = module.vcn.vcn_id
+
+  display_name = "spade-nsg"
+}
+
+resource "oci_core_network_security_group_security_rule" "nsg_ingress" {
+  network_security_group_id = oci_core_network_security_group.nsg.id
+  direction                 = "INGRESS"
+  protocol                  = "6" # TCP
+
+  description = "spade-nsg-ingress"
+
+  source      = "0.0.0.0/0"
+  source_type = "CIDR_BLOCK"
+
+  tcp_options {
+    destination_port_range {
+      min = local.ssh_port
+      max = local.ssh_port
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "nsg_egress" {
+  network_security_group_id = oci_core_network_security_group.nsg.id
+  direction                 = "EGRESS"
+  protocol                  = "all"
+
+  description = "spade-nsg-egress"
+
+  destination      = "0.0.0.0/0"
+  destination_type = "CIDR_BLOCK"
+}
+
 /* ---------------------------- Compute Instance ---------------------------- */
 
-resource "oci_core_instance" "spade-instance" {
+resource "oci_core_instance" "instance" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_id
 
@@ -117,9 +151,10 @@ resource "oci_core_instance" "spade-instance" {
   }
 
   create_vnic_details {
-    subnet_id        = oci_core_subnet.spade-subnet.id
+    subnet_id        = oci_core_subnet.subnet.id
     assign_public_ip = true
     hostname_label   = "spade"
+    nsg_ids          = [oci_core_network_security_group.nsg.id]
   }
 
   metadata = {

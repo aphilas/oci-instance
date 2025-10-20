@@ -23,17 +23,6 @@ export OCI_CLI_PROFILE=spade
 oci iam region list
 ```
 
-TODO:
-
-- Fix SSH access
-- Ensure default security list is not applied
-- Allow ICMP and other pings
-- Add fail2ban
-- Enable Oracle monitoring agents
-- Fix existing user vs new user config
-- Set up VM to test cloud init script locally
-- Switch provider to public key auth 
-
 ## Troubleshooting
 
 - Check serial console logs for errors
