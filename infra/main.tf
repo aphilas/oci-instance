@@ -6,9 +6,10 @@ locals {
 
 
   cloud_init_config = templatefile("${path.module}/cloud-init.yaml", {
-    ssh_public_key     = file(var.ssh_public_key_file)
-    ssh_port           = local.ssh_port
-    user_password_hash = var.user_password_hash
+    ssh_public_key      = file(var.ssh_public_key_file)
+    ssh_port            = local.ssh_port
+    console_user_passwd = var.console_user_passwd
+    username            = var.username
   })
 }
 
@@ -18,6 +19,7 @@ data "oci_identity_availability_domains" "ads" {
 
 /* ------------------------------- Networking ------------------------------- */
 
+# Creates a VCN with an Internet Gateway and default route table
 module "vcn" {
   source  = "oracle-terraform-modules/vcn/oci"
   version = "3.6.0"
@@ -69,6 +71,21 @@ resource "oci_core_security_list" "spade-security-list" {
     protocol    = "1" # ICMP
     source      = "0.0.0.0/0"
     source_type = "CIDR_BLOCK"
+
+    icmp_options {
+      type = 3
+      code = 4
+    } 
+  }
+ 
+  ingress_security_rules {
+    protocol    = "1" # ICMP
+    source      = "10.0.0.0/16"
+    source_type = "CIDR_BLOCK"
+
+    icmp_options {
+      type = 3
+    }
   }
 
   egress_security_rules {

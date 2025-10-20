@@ -8,17 +8,24 @@ package_upgrade: true
 groups:
   - docker
 
-system_info:
-  default_user:
+users:
+  - default
+  - name: ${username}
+    groups:
+      - docker
+      - sudo
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"] # Allow passwordless sudo
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+  - name: console # User for serial console access
+    passwd: ${console_user_passwd}
+    lock_passwd: false
     groups:
       - docker
       - sudo
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
     shell: /bin/bash
-    ssh_authorized_keys:
-      - ${ssh_public_key}
-    hashed_passwd: ${user_password_hash} # To set passwd for an existing user
-    lock_passwd: false # Allow login with password for serial console access
 
 packages:
   - apt-transport-https
@@ -36,11 +43,10 @@ write_files:
         "log-driver": "local"
       }
   - path: /etc/ssh/sshd_config.d/cloud-init.conf
-    # NOTE: Assumes the default user is 'ubuntu'
     content: |
       AllowAgentForwarding no
       AllowTcpForwarding no
-      AllowUsers ubuntu
+      AllowUsers ${username}
       AuthenticationMethods publickey
       KbdInteractiveAuthentication no
       MaxAuthTries 3
@@ -58,10 +64,12 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
+  # Configure unattended upgrades
+  - dpkg-reconfigure -f noninteractive unattended-upgrades
   # Configure UFW
   - ufw allow ${ssh_port}/tcp
   - ufw enable
   # Configure sshd
-  - systemctl restart sshd
+  - systemctl restart ssh
 
-final_message: "The system is finally up, after $UPTIME seconds"
+final_message: "The system is up after $UPTIME seconds"

@@ -18,7 +18,12 @@ variable "ssh_private_key_file" {
   description = "Path to the SSH private key file"
 }
 
-variable "user_password_hash" {
+variable "username" {
   type        = string
-  description = "The hashed password for the default user"
+  description = "The default username for the VM"
+}
+
+variable "console_user_passwd" {
+  type        = string
+  description = "The hashed password for the console user. Generated using `openssl passwd -1 'your_password'`"
 }
