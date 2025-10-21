@@ -42,3 +42,8 @@ variable "console_user_passwd" {
   type        = string
   description = "The hashed password for the console user. Generated using `openssl passwd -1 'your_password'`"
 }
+
+variable "hostname" {
+  type        = string
+  description = "The hostname for the VM instance"
+}

@@ -4,7 +4,6 @@ locals {
   node_shape  = "VM.Standard.A1.Flex"
   ssh_port    = 2222
 
-
   cloud_init_config = templatefile("${path.module}/cloud-init.yaml", {
     ssh_public_key      = file(var.ssh_public_key_file)
     ssh_port            = local.ssh_port
@@ -19,15 +18,14 @@ data "oci_identity_availability_domains" "ads" {
 
 /* ------------------------------- Networking ------------------------------- */
 
-# Creates a VCN with an Internet Gateway and default route table
 module "vcn" {
   source  = "oracle-terraform-modules/vcn/oci"
   version = "3.6.0"
 
   compartment_id = var.compartment_id
 
-  vcn_name      = "spade-vcn"
-  vcn_dns_label = "spade"
+  vcn_name      = "${var.hostname}-vcn"
+  vcn_dns_label = var.hostname
   vcn_cidrs     = ["10.0.0.0/16"]
 
   create_internet_gateway = true
@@ -38,8 +36,8 @@ resource "oci_core_subnet" "subnet" {
   vcn_id         = module.vcn.vcn_id
   cidr_block     = "10.0.1.0/24"
 
-  display_name = "spade-subnet"
-  dns_label    = "spadesubnet"
+  display_name = "${var.hostname}-subnet"
+  dns_label    = "${var.hostname}subnet"
 
   route_table_id    = module.vcn.ig_route_id
   security_list_ids = [oci_core_security_list.security-list.id]
@@ -51,7 +49,7 @@ resource "oci_core_security_list" "security-list" {
   compartment_id = var.compartment_id
   vcn_id         = module.vcn.vcn_id
 
-  display_name = "spade-security-list"
+  display_name = "${var.hostname}-security-list"
 
   ingress_security_rules {
     protocol    = "6" # TCP
@@ -99,7 +97,7 @@ resource "oci_core_instance" "instance" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_id
 
-  display_name = "spade"
+  display_name = var.hostname
   shape        = local.node_shape
 
   shape_config {
@@ -117,7 +115,7 @@ resource "oci_core_instance" "instance" {
   create_vnic_details {
     subnet_id        = oci_core_subnet.subnet.id
     assign_public_ip = true
-    hostname_label   = "spade"
+    hostname_label   = var.hostname
   }
 
   metadata = {

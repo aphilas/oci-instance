@@ -1,27 +1,9 @@
-# spade
+# Oracle Compute Instance
 
 > **Warning**
 > This config is broken. SSH access does not work.
 
 Oracle Cloud Compute Instance, used (for now) as a builder for ARM Docker images.
-
-Spec:
-
-- Ingress: TCP 22 (SSH)
-- Egress: All
-
-## Getting started
-
-```sh
-oci session authenticate
-oci session refresh
-
-export OCI_CLI_AUTH=security_token
-export OCI_CLI_PROFILE=spade
-
-# Verity authn
-oci iam region list
-```
 
 ## Troubleshooting
 
@@ -29,6 +11,14 @@ oci iam region list
 
 ```
 sudo less /var/log/cloud-init-output.log
+```
+
+## Docker context
+
+```sh
+docker context create <context> --docker "host=ssh://<host>"
+
+DOCKER_CONTEXT=<context> docker ps
 ```
 
 ## References
