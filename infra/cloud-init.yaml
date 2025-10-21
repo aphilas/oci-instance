@@ -1,7 +1,5 @@
 #cloud-config
 
-# Install Docker on an Ubuntu-based instance:
-# https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
 package_update: true
 package_upgrade: true
 
@@ -57,19 +55,17 @@ write_files:
       X11Forwarding no
 
 runcmd:
-  # Install Docker 
+  # Install Docker - https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
   - mkdir -p /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
-  # Configure unattended upgrades
+  # --- #
   - dpkg-reconfigure -f noninteractive unattended-upgrades
-  # Configure UFW
   - ufw allow ${ssh_port}/tcp
   - ufw enable
-  # Configure sshd
   - systemctl restart ssh
 
 final_message: "The system is up after $UPTIME seconds"

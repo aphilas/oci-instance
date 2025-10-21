@@ -3,27 +3,27 @@
 > **Warning**
 > This config is broken. SSH access does not work.
 
-Oracle Cloud Compute Instance, used (for now) as a builder for ARM Docker images.
+Oracle Cloud Compute Instance provisioned with Terraform (see infra/), used as a builder for ARM Docker images.
 
-## Troubleshooting
-
-- Check serial console logs for errors
-
-```
-sudo less /var/log/cloud-init-output.log
-```
-
-## Docker context
+## Getting Started
 
 ```sh
-docker context create <context> --docker "host=ssh://<host>"
+# Provision instance
+cd infra/
+vim terraform.tfvars  # Set your variables
+tf init
+tf apply
 
+# Add ssh config
+tee -a ~/.ssh/config <<EOF
+Host <host>
+HostName <public_ip>
+User ubuntu
+Port 2222
+IdentityFile ~/.ssh/id_ed25519
+EOF
+
+# Create docker context
+docker context create <context> --docker "host=ssh://<host>"
 DOCKER_CONTEXT=<context> docker ps
 ```
-
-## References
-
-- https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-vcn.htm
-- https://cloudinit.readthedocs.io/en/latest/reference/examples.html
-- https://cloudinit.readthedocs.io/en/latest/reference/yaml_examples/user_groups.html
-- https://community.hetzner.com/tutorials/basic-cloud-config - cloud-init example
